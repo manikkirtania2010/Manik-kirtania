@@ -1,0 +1,6 @@
+{
+  "name": "Battle Arena",
+  "description": "Free Fire India Esports Tournament App with Lone Wolf, Clash Squad, Battle Royale, Wallet, and Automatic Prize Distribution in Bengali & English.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

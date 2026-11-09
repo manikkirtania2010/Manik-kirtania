@@ -1,0 +1,183 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // 1. GLOBAL HELPER FUNCTIONS
+    // ==========================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'kirtaniamanik2010@gmail.com'
+      );
+    }
+
+    // ==========================================
+    // 2. USER PROFILES & PRIVATE PII
+    // ==========================================
+
+    match /users/{userId} {
+      // PII Protection: Private profile, email, phone, and stats accessible only by owner or Super Admin
+      allow read: if isOwner(userId) || isSuperAdmin();
+
+      // Account Registration: Player can only register their own profile with non-privileged defaults
+      allow create: if isOwner(userId) &&
+                       request.resource.data.uid == userId &&
+                       (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false) &&
+                       (!('isBanned' in request.resource.data) || request.resource.data.isBanned == false) &&
+                       (!('accountStatus' in request.resource.data) || request.resource.data.accountStatus == 'ACTIVE');
+
+      // Profile Updates: Regular player can only update safe personal presentation fields
+      // Administrative fields (isAdmin, isBanned, banReason, accountStatus, suspensionExpiresAt,
+      // playerId, walletBalance, totalEarnings, totalWins) are strictly restricted to Super Admin
+      allow update: if isSuperAdmin() || (
+        isOwner(userId) &&
+        request.resource.data.uid == userId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'freeFireName', 'freeFireUID', 'freeFireLevel',
+          'avatarId', 'phone', 'languageCode', 'updatedAt', 'lastLoginAt'
+        ])
+      );
+
+      // Account Deletion: Prevent client-side destruction of player records
+      allow delete: if false;
+
+      // User Segregated Wallet Subcollection
+      match /wallet/{walletId} {
+        allow read: if isOwner(userId) || isSuperAdmin();
+        allow write: if isSuperAdmin();
+      }
+
+      // User Financial & Match Transaction Ledger (Immutable audit trail)
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId) || isSuperAdmin();
+        allow create: if isSuperAdmin() || (
+          isOwner(userId) &&
+          request.resource.data.userId == userId &&
+          request.resource.data.type in ['ENTRY_FEE', 'REGISTRATION_FEE', 'BONUS']
+        );
+        allow update, delete: if false;
+      }
+    }
+
+    // Legacy Wallet Collection
+    match /wallets/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    // ==========================================
+    // 3. TOURNAMENTS & PROTECTED ROOM CREDENTIALS
+    // ==========================================
+
+    match /tournaments/{tournamentId} {
+      // Tournaments public schedule: readable by signed-in players
+      allow read: if isSignedIn();
+      // Only authorized Super Admin can create, edit, update status, cancel or delete tournaments
+      allow write: if isSuperAdmin();
+
+      // Protected Room Credentials Subcollection:
+      // Room ID and password accessible exclusively by Super Admin or confirmed paid participants
+      match /private_room/{docId} {
+        allow read: if isSuperAdmin() || (
+          isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.paidParticipantUids
+        );
+        allow write: if isSuperAdmin();
+      }
+    }
+
+    // ==========================================
+    // 4. LEADERBOARD & OFFICIAL RANKINGS
+    // ==========================================
+
+    match /leaderboard/{entryId} {
+      // Official standings publicly visible to all signed-in players
+      allow read: if isSignedIn();
+      // Modifying rankings, scores or prize tallies strictly restricted to Super Admin
+      allow write: if isSuperAdmin();
+    }
+
+    // ==========================================
+    // 5. FINANCIAL DEPOSITS & WITHDRAWALS
+    // ==========================================
+
+    match /addMoneyRequests/{requestId} {
+      // Players can submit deposit verification requests in PENDING status only
+      allow create: if isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.status == 'PENDING' &&
+                       (!('approvedBy' in request.resource.data) || request.resource.data.approvedBy == '');
+      // Players can only read their own requests; Super Admin reviews all
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      // Approval, rejection, or modifications restricted to Super Admin
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /withdrawals/{withdrawalId} {
+      // Players can submit prize payout requests in PENDING status only
+      allow create: if isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.status == 'PENDING' &&
+                       (!('approvedBy' in request.resource.data) || request.resource.data.approvedBy == '');
+      // Players can only read their own withdrawal records; Super Admin reviews all
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      // Processing, paying, and rejecting withdrawals restricted to Super Admin
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // ==========================================
+    // 6. FAIR PLAY & INCIDENT REPORTS
+    // ==========================================
+
+    match /incidentReports/{reportId} {
+      // Players can report suspected cheaters in PENDING status without self-assigned decisions
+      allow create: if isSignedIn() &&
+                       request.resource.data.reportedByUserId == request.auth.uid &&
+                       request.resource.data.status == 'PENDING' &&
+                       (!('adminDecision' in request.resource.data) || request.resource.data.adminDecision == '') &&
+                       (!('reviewedBy' in request.resource.data) || request.resource.data.reviewedBy == '');
+      // Involved players (reporter and accused) or Super Admin can read the report
+      allow read: if isSignedIn() && (
+        resource.data.reportedByUserId == request.auth.uid ||
+        resource.data.reportedUserId == request.auth.uid ||
+        isSuperAdmin()
+      );
+      // Accused player can only submit their defense statement/appeal
+      // Verdicts, decisions, and statuses are strictly controlled by Super Admin
+      allow update: if isSuperAdmin() || (
+        isSignedIn() &&
+        resource.data.reportedUserId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['appeal', 'appealSubmittedAt'])
+      );
+      // Reports cannot be deleted by players
+      allow delete: if isSuperAdmin();
+    }
+
+    // ==========================================
+    // 7. ADMIN AUDIT LOGS
+    // ==========================================
+
+    match /adminAuditLogs/{logId} {
+      // Administrative audit trail accessible and writable exclusively by Super Admin
+      allow read, write: if isSuperAdmin();
+    }
+
+    // ==========================================
+    // 8. GLOBAL DEFAULT DENY CATCH-ALL
+    // ==========================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

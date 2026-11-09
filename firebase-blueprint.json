@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Permanent player profile and gaming stats stored in cloud Firestore",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth user ID" },
+        "playerId": { "type": "string", "description": "Permanent unique Battle Arena Player ID (e.g. BA-70912)" },
+        "displayName": { "type": "string", "description": "Player display name" },
+        "email": { "type": "string", "description": "Player email address" },
+        "freeFireUID": { "type": "string", "description": "Player in-game Free Fire UID" },
+        "freeFireName": { "type": "string", "description": "Player Free Fire IGN" },
+        "freeFireLevel": { "type": "integer", "description": "Free Fire account level (Level 10+ required)" },
+        "levelVerificationStatus": { "type": "string", "description": "Verification status: UNVERIFIED, PENDING, VERIFIED, REJECTED" },
+        "walletBalance": { "type": "integer", "description": "Cached total wallet balance" },
+        "referralCode": { "type": "string", "description": "Player's personal referral code" },
+        "phone": { "type": "string", "description": "Player phone number" },
+        "avatarId": { "type": "integer", "description": "Selected avatar icon ID" },
+        "referredBy": { "type": "string", "description": "Referrer code if referred by another user" },
+        "languageCode": { "type": "string", "description": "Preferred language code (e.g. en, bn, hi)" },
+        "totalKills": { "type": "integer", "description": "Lifetime confirmed kills across matches" },
+        "totalWins": { "type": "integer", "description": "Lifetime matches won" },
+        "totalEarnings": { "type": "integer", "description": "Lifetime prize money won in INR" },
+        "totalTournaments": { "type": "integer", "description": "Total tournaments entered" },
+        "isAdmin": { "type": "boolean", "description": "Whether user has admin privileges" },
+        "isVerified": { "type": "boolean", "description": "Whether user profile is verified" },
+        "isBanned": { "type": "boolean", "description": "Whether account is suspended" },
+        "banReason": { "type": "string", "description": "Reason for suspension if banned" },
+        "accountStatus": { "type": "string", "description": "ACTIVE, TEMPORARILY_SUSPENDED, PERMANENTLY_BANNED" },
+        "suspensionDurationHours": { "type": "integer", "description": "Temporary suspension duration in hours" },
+        "suspensionExpiresAt": { "type": "integer", "description": "Timestamp when temporary suspension expires" },
+        "bannedByAdmin": { "type": "string", "description": "Email of admin who executed the action" },
+        "bannedAt": { "type": "integer", "description": "Timestamp when ban was applied" },
+        "createdAt": { "type": "integer", "description": "Account registration timestamp" },
+        "lastLoginAt": { "type": "integer", "description": "Last sign-in timestamp" }
+      },
+      "required": ["uid", "playerId", "displayName", "email"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "User wallet balance state with segregated funds",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owning player UID" },
+        "depositBalance": { "type": "integer", "description": "Deposited money usable for entry fees" },
+        "winningBalance": { "type": "integer", "description": "Withdrawable tournament prizes" },
+        "bonusBalance": { "type": "integer", "description": "Referral bonus points" },
+        "reservedBalance": { "type": "integer", "description": "Funds reserved in active pending withdrawals" },
+        "updatedAt": { "type": "integer", "description": "Last balance update timestamp" }
+      },
+      "required": ["userId", "depositBalance", "winningBalance", "bonusBalance"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial ledger record of wallet movements and tournament entries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transaction unique identifier" },
+        "userId": { "type": "string", "description": "Target player UID" },
+        "type": { "type": "string", "description": "ADD_MONEY, ENTRY_FEE, PRIZE_MONEY, REFERRAL_BONUS, WITHDRAWAL, REFUND" },
+        "amount": { "type": "integer", "description": "Transaction amount in INR" },
+        "status": { "type": "string", "description": "SUCCESS, PENDING, FAILED" },
+        "timestamp": { "type": "integer", "description": "Transaction timestamp" },
+        "referenceId": { "type": "string", "description": "Match ID or external UPI reference" },
+        "titleEn": { "type": "string", "description": "English description title" },
+        "titleBn": { "type": "string", "description": "Bengali description title" },
+        "subtitleEn": { "type": "string", "description": "English subtitle" },
+        "subtitleBn": { "type": "string", "description": "Bengali subtitle" }
+      },
+      "required": ["id", "userId", "type", "amount", "status", "timestamp"]
+    },
+    "Tournament": {
+      "title": "Tournament",
+      "description": "Battle Arena tournament and custom room record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Tournament ID" },
+        "titleEn": { "type": "string", "description": "Tournament title in English" },
+        "titleBn": { "type": "string", "description": "Tournament title in Bengali" },
+        "mode": { "type": "string", "description": "Game mode: BATTLE_ROYALE, CLASH_SQUAD, LONE_WOLF" },
+        "entryFee": { "type": "integer", "description": "Entry fee in INR" },
+        "totalPrizePool": { "type": "integer", "description": "Total prize pool in INR" },
+        "totalSlots": { "type": "integer", "description": "Total player capacity" },
+        "status": { "type": "string", "description": "Tournament status" },
+        "paidParticipantUids": { "type": "array", "description": "List of confirmed paid participant UIDs" }
+      },
+      "required": ["id", "titleEn", "mode", "entryFee", "totalSlots"]
+    },
+    "PrivateRoomCredentials": {
+      "title": "PrivateRoomCredentials",
+      "description": "Isolated Free Fire room ID and password",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string", "description": "Associated tournament ID" },
+        "roomId": { "type": "string", "description": "Protected room ID" },
+        "roomPassword": { "type": "string", "description": "Protected room password" },
+        "updatedAt": { "type": "integer", "description": "Last update timestamp" },
+        "publishedBy": { "type": "string", "description": "Admin email who published the credentials" }
+      },
+      "required": ["tournamentId", "roomId", "roomPassword"]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Official ranking and score record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Entry ID" },
+        "userId": { "type": "string", "description": "Player UID" },
+        "playerName": { "type": "string", "description": "Player display name" },
+        "freeFireUid": { "type": "string", "description": "Free Fire UID" },
+        "totalKills": { "type": "integer", "description": "Total kills" },
+        "totalWins": { "type": "integer", "description": "Total tournament wins" },
+        "totalEarnings": { "type": "integer", "description": "Total earnings in INR" },
+        "rank": { "type": "integer", "description": "Official leaderboard rank" }
+      },
+      "required": ["id", "userId", "playerName", "rank"]
+    },
+    "AddMoneyRequest": {
+      "title": "AddMoneyRequest",
+      "description": "Financial deposit verification request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request ID" },
+        "userId": { "type": "string", "description": "Requesting player UID" },
+        "amount": { "type": "integer", "description": "Deposit amount in INR" },
+        "utrNumber": { "type": "string", "description": "Bank/UPI UTR transaction reference" },
+        "paymentMethod": { "type": "string", "description": "Payment gateway/method" },
+        "status": { "type": "string", "description": "PENDING, APPROVED, REJECTED" },
+        "requestedAt": { "type": "integer", "description": "Submission timestamp" },
+        "approvedBy": { "type": "string", "description": "Approving admin email" }
+      },
+      "required": ["id", "userId", "amount", "utrNumber", "status"]
+    },
+    "WithdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "Financial payout withdrawal request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request ID" },
+        "userId": { "type": "string", "description": "Requesting player UID" },
+        "amount": { "type": "integer", "description": "Withdrawal amount in INR" },
+        "method": { "type": "string", "description": "Payout method (UPI, Paytm, etc.)" },
+        "payoutDestination": { "type": "string", "description": "UPI ID or Phone number" },
+        "status": { "type": "string", "description": "PENDING, APPROVED, PAID, REJECTED" },
+        "requestedAt": { "type": "integer", "description": "Submission timestamp" },
+        "processedAt": { "type": "integer", "description": "Processing timestamp" },
+        "approvedBy": { "type": "string", "description": "Approving admin email" }
+      },
+      "required": ["id", "userId", "amount", "method", "payoutDestination", "status"]
+    },
+    "IncidentReport": {
+      "title": "IncidentReport",
+      "description": "Fair Play anti-cheat player report and appeal record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Report ID" },
+        "reportedByUserId": { "type": "string", "description": "Reporting player UID" },
+        "reportedUserId": { "type": "string", "description": "Accused player UID" },
+        "tournamentId": { "type": "string", "description": "Match ID where incident occurred" },
+        "reason": { "type": "string", "description": "Category of violation" },
+        "evidenceUrl": { "type": "string", "description": "Screenshot/video link" },
+        "status": { "type": "string", "description": "PENDING, UNDER_REVIEW, VERIFIED_VIOLATION, DISMISSED" },
+        "adminDecision": { "type": "string", "description": "Official admin verdict" },
+        "reviewedBy": { "type": "string", "description": "Reviewing admin email" },
+        "appeal": { "type": "string", "description": "Player defense/appeal statement" },
+        "appealSubmittedAt": { "type": "integer", "description": "Timestamp of appeal submission" }
+      },
+      "required": ["id", "reportedByUserId", "reportedUserId", "tournamentId", "status"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Immutable log of privileged administrative operations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Audit log ID" },
+        "action": { "type": "string", "description": "Action type" },
+        "targetId": { "type": "string", "description": "Target entity ID" },
+        "details": { "type": "string", "description": "Sanitized details (no secrets)" },
+        "performedBy": { "type": "string", "description": "Admin email who performed the action" },
+        "timestamp": { "type": "integer", "description": "Execution timestamp" }
+      },
+      "required": ["id", "action", "targetId", "performedBy", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "#/entities/User",
+      "description": "Permanent player profile and account information"
+    },
+    "/users/{userId}/wallet/{walletId}": {
+      "schema": "#/entities/Wallet",
+      "description": "User wallet balance storage"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "#/entities/Transaction",
+      "description": "User match and financial transaction history"
+    },
+    "/wallets/{userId}": {
+      "schema": "#/entities/Wallet",
+      "description": "Legacy wallet storage"
+    },
+    "/tournaments/{tournamentId}": {
+      "schema": "#/entities/Tournament",
+      "description": "Tournament schedules and public match data"
+    },
+    "/tournaments/{tournamentId}/private_room/{docId}": {
+      "schema": "#/entities/PrivateRoomCredentials",
+      "description": "Protected tournament room credentials"
+    },
+    "/leaderboard/{entryId}": {
+      "schema": "#/entities/LeaderboardEntry",
+      "description": "Verified player rankings and public records"
+    },
+    "/addMoneyRequests/{requestId}": {
+      "schema": "#/entities/AddMoneyRequest",
+      "description": "Player deposit money requests"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "#/entities/WithdrawalRequest",
+      "description": "Player prize withdrawal requests"
+    },
+    "/incidentReports/{reportId}": {
+      "schema": "#/entities/IncidentReport",
+      "description": "Player cheating reports and appeals"
+    },
+    "/adminAuditLogs/{logId}": {
+      "schema": "#/entities/AdminAuditLog",
+      "description": "Administrative actions audit log"
+    }
+  }
+}
